@@ -32,7 +32,8 @@ using System.Web.Http.Controllers;
 using System.Threading.Tasks;
 using System.Globalization;
 using CrystalDecisions.Shared;
-
+using AESEncrypt;
+using MLRemitWebAPI.Controllers;
 
 
 
@@ -51,6 +52,10 @@ namespace PayNearMe.Controllers.api
         private String PNMServer = string.Empty;
         private DateTime dt;
         private String secureToken = "TUxIVUlMTElFUkl0U2RrryloTnNZekI0OTVRUTZKNU1YcjAvTzFyST0";
+        //
+        //Forgot Password encrypt string key
+        //Added by: Khevin R. Tulang
+        private String encStringKey = "B905BD7BFBD902DCB115B327F9018CEA";
         private MySqlCommand custcommand;
         private MySqlTransaction custtrans = null;
         private String siteIdentifier = string.Empty;
@@ -70,6 +75,8 @@ namespace PayNearMe.Controllers.api
         private String iDologyServer = string.Empty;
         private String iDologyUser = String.Empty;
         private String iDologyPass = String.Empty;
+        private AESEncryption encdata = new AESEncryption();
+
         public WebServiceController()
         {
 
@@ -4722,9 +4729,183 @@ namespace PayNearMe.Controllers.api
         }
         #endregion
 
+        // Forgot Password API
+        // Added: Khevin R. Tulang
+        // Date : September 29, 2017
+        [HttpGet]
+        public ForgotPasswordModelResponse CheckEmail(String email, String token)
+        {
+            ForgotPasswordModelResponse response = new ForgotPasswordModelResponse();
+            String secCode = string.Empty;
+            String cid = string.Empty;
+            String fn = string.Empty;
 
+            response.code = 0;
 
+            if (token != secureToken)
+            {
+                response.message = "unidentified token...";
+                return response;
+            }
+
+            if (!string.IsNullOrEmpty(email))
+            {
+                try
+                {   using (MySqlConnection con = new MySqlConnection(connection))
+                    {   con.Open();
+                        using (MySqlCommand cmd = con.CreateCommand())
+                        {
+                            cmd.CommandText = "Select UserID, CustomerID, FullName, securityCode from kpcustomersglobal.PayNearMe where UserID = @email";
+                            cmd.Parameters.AddWithValue("email", email);
+
+                            MySqlDataReader rdr = cmd.ExecuteReader();
+                            if (rdr.HasRows)
+                            {
+                                rdr.Read();
+                                secCode = rdr["securityCode"].ToString();
+                                    cid = rdr["CustomerID"].ToString();
+                                     fn = rdr["FullName"].ToString();
+                                rdr.Close();
+                                response = requestCode(email, cid, fn, secCode);
+                            }
+                            else
+                                response.message = "The email address specified <br /> has not been registered...";
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    response.code = -1;
+                    response.message = "A System Error has occured Please try again...";
+                    kplog.Error("[CheckEmail] System Error: " + ex.Message);
+                }
+            }
+            else
+                response.message = "Please kindly provide an <br /> email address...";
+
+            return response;
+        }
+
+        //generates 4 characters of alphanumeric combination at random as security code
+        private String generateSecurityCode()
+        {
+            Random random = new Random();
+            const string chars = "9AB8CD7EF6GH5IJ4KL3MN2OP1QR0ST9UV8WX7YZ6012345";
+            return new string(Enumerable.Repeat(chars, 4).Select(s => s[random.Next(s.Length)]).ToArray());
+        }
+
+        private ForgotPasswordModelResponse requestCode(String email, String cid, String fn, String securityCode)
+        {
+            ForgotPasswordModelResponse response = new ForgotPasswordModelResponse();
+            
+            try
+            {
+                using (MySqlConnection con = new MySqlConnection(connection))
+                {
+                    con.Open();
+                    using (MySqlCommand cmd = con.CreateCommand())
+                    {
+                        if (securityCode == string.Empty)
+                        {
+                            securityCode = generateSecurityCode();
+                            cmd.CommandText = "UPDATE `kpcustomersglobal`.`PayNearMe` SET securityCode = @securityCode WHERE CustomerID = @custID AND FullName = @fullName";
+                            cmd.Parameters.AddWithValue("securityCode", securityCode);
+                            cmd.Parameters.AddWithValue("custID", cid);
+                            cmd.Parameters.AddWithValue("fullName", fn);
+                            if (cmd.ExecuteNonQuery() <= 0)
+                                throw new Exception("Server Error : failed to update security code...");
+                        }
+
+                        if (sendSecurityCode(email, securityCode, cid, fn))
+                        {
+                            response.code = 1;
+                            response.message = "An e-mail has been sent, please check your e-mail to proceed";
+                        }
+                        else
+                        {
+                            response.code = 0;
+                            response.message = "Service error : Unable to mail code... Send request timeout";
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                kplog.Error("[RequestCode] where email = '" + email + "', encCID = '" + cid + "', encFN = '" + fn + "'; ErrorMessage = " + ex.ToString());
+                response.code = -1;
+                response.message = "Server error upon generating security code";
+            }
+            return response;
+        }
+
+        private string generateAutoForgotPasswordLink(String email, String securityCode, String custID, String fullName)
+        {
+            string baseUrl = Request.RequestUri.GetLeftPart(UriPartial.Authority);
+            string controllerLink = "/ForgotPassword/fprstpswrd?";
+            string encData = "e=" + encdata.AESEncrypt(email.ToString(), encStringKey).Replace(' ', '+') + '&'
+                           + "sc=" + encdata.AESEncrypt(securityCode.ToString(), encStringKey).Replace(' ', '+') + '&'
+                           + "cid=" + encdata.AESEncrypt(custID.ToString(), encStringKey).Replace(' ', '+') + '&'
+                           + "fn=" + encdata.AESEncrypt(fullName.ToString(), encStringKey).Replace(' ', '+');
+            return baseUrl + controllerLink + encData;
+        }
+
+        private Boolean sendSecurityCode(String email, String SecurityCode, String CustID, String FullName)
+        {
+            String autolink = generateAutoForgotPasswordLink(email, SecurityCode, CustID, FullName);
+
+            SmtpClient client = new SmtpClient();
+            client.EnableSsl = smtpSsl;
+            client.UseDefaultCredentials = true;
+            client.Host = smtpServer;
+            client.Port = 587;
+            client.Credentials = new NetworkCredential(smtpUser, smtpPass);
+            MailMessage msg = new MailMessage();
+            msg.To.Add(email);
+            msg.From = new MailAddress("ML Remit<" + smtpSender + ">");
+            msg.Subject = "ML Remit - Request to reset password";
+            msg.Body = "<div style=\"font-size: 16px; font-family: Consolas; text-align: justify; margin: 0 auto; width: 500px; color: black; padding: 20px; border-left: 1px solid #FFF0CA; border-right: 1px solid #FFF0CA; border-radius: 20px;\">"
+                     + "<p> Good day Ma'am/Sir <b>" + FullName + "</b>,</p>"
+                     + "<p>"
+                     + "<b>M. Lhuillier</b> goes online with "
+                     + "<b>ML Remit</b> - fast - convenient - safe."
+                     + "</p><br />"
+                     + "<p> You have requested for resetting your password. </p>"
+                     + "Let's retrieve your account! <br />"
+                     //+ "Security Code : <b>" + SecurityCode + "</b> <br />"
+                     //+ "Copy and enter the code provided or just "
+                     + "<a href=\"" + autolink + "\" target=\"_blank\" style=\"font-size: 20px;\"> Click Here </a>"
+                     + "to proceed on on your request"
+                     + "<br /><br />"
+                     + "If for instance the above button link doesn't work please copy and paste the link below to your browser to proceed."
+                     + "<br /><br /><code>" + autolink
+                     + "</code><br /><br />"
+                     + "<div style=\"font-size: 14px; background-color: lightgray; padding: 0 15px; \">"
+                     + "If by in any chance you did not forget or you have remembered your password or "
+                     + "you did not request this e-mail then please ignore this message. Thank You!"
+                     + "</div><br /><br />"
+                     + "<div style=\"font-size: 14px; border-top: 1px solid lightgray; text-align: center; padding-top: 5px; background-color: gray;\">"
+                     + "-- This mail is auto generated. Please do not reply. --"
+                     + "</div></div>";
+            msg.IsBodyHtml = true;
+
+            Boolean isSent = false;
+            for (int retries = 0; retries < 300; retries++)
+            {
+                try
+                {
+                    client.Send(msg);
+                    isSent = true;
+                    retries = 300;
+                }
+                catch (Exception err)
+                {
+                    if (retries == 2)
+                        kplog.Error(err.ToString());
+                    if (retries < 299)
+                        Thread.Sleep(1300); //Delay for 1.3seconds
+                }
+            }
+            return isSent;
+        }
     }
-
-
 }

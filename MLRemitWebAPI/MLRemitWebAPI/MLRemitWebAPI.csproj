@@ -40,6 +40,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="AESEncrypt">
+      <HintPath>..\..\..\..\AESEncrypt.dll</HintPath>
+    </Reference>
     <Reference Include="CrystalDecisions.CrystalReports.Engine">
       <HintPath>..\..\PayNearMe\PayNearMe\bin\CrystalDecisions.CrystalReports.Engine.dll</HintPath>
     </Reference>
@@ -153,6 +156,7 @@
     <Compile Include="Areas\HelpPage\SampleGeneration\SampleDirection.cs" />
     <Compile Include="Areas\HelpPage\SampleGeneration\TextSample.cs" />
     <Compile Include="Areas\HelpPage\XmlDocumentationProvider.cs" />
+    <Compile Include="Controllers\ForgotPasswordController.cs" />
     <Compile Include="Controllers\HomeController.cs" />
     <Compile Include="Controllers\WebServiceController.cs" />
     <Compile Include="Global.asax.cs">
@@ -176,6 +180,7 @@
     <Compile Include="Responses\CustomerModel.cs" />
     <Compile Include="Responses\CustomerResultResponse.cs" />
     <Compile Include="Responses\ErrorModel.cs" />
+    <Compile Include="Responses\ForgotPasswordModel.cs" />
     <Compile Include="Responses\HomeModel.cs" />
     <Compile Include="Responses\LoginResponse.cs" />
     <Compile Include="Responses\PendingTransaction.cs" />
@@ -242,6 +247,7 @@
     <Content Include="Views\Shared\Error.cshtml" />
     <Content Include="Views\Shared\_Layout.cshtml" />
     <Content Include="Scripts\jquery-1.10.2.min.map" />
+    <Content Include="Views\ForgotPassword\fprstpswrd.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="fonts\glyphicons-halflings-regular.woff" />
