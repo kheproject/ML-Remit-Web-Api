@@ -201,5 +201,10 @@ namespace MLRemitWebAPI.Controllers
             }
             return isSent;
         }
+
+        private Boolean Test()
+        {
+            return false;
+        }
 	}
 }
