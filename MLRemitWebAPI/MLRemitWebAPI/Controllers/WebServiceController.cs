@@ -75,6 +75,7 @@ namespace PayNearMe.Controllers.api
         private String iDologyServer = string.Empty;
         private String iDologyUser = String.Empty;
         private String iDologyPass = String.Empty;
+        private Boolean iDology = false;
         private AESEncryption encdata = new AESEncryption();
 
         public WebServiceController()
@@ -97,7 +98,7 @@ namespace PayNearMe.Controllers.api
             siteIdentifier = config["siteIdentifier"].ToString();
             secretKey = config["secretKey"].ToString();
             forex = config["mlforexrate"].ToString();
-
+            iDology = Convert.ToBoolean(config["iDology"]);
             iDologyServer = config["iDologyServer"].ToString();
             iDologyUser = config["iDologyUser"].ToString();
             iDologyPass = config["iDologyPass"].ToString();
@@ -985,35 +986,28 @@ namespace PayNearMe.Controllers.api
             kplog.Info("SenderFName: " + SenderFName + ", SenderLName: " + SenderLName + " SenderMName: " + SenderMName + ", SenderStreet: " + SenderStreet + ", SenderProvinceCity: " + State + "SenderCountry: " + SenderCountry + ", ZipCode: " + ZipCode + ", SenderGender: " + SenderGender + ", SenderBirthdate: " + SenderBirthdate + ", SenderBranchID: " + SenderBranchID);
 
 
-
-
-
             try
             {
 
 
-                var apiIDologyResp = ExpectID_IQ_Check(req).Result;
-
-
-                if (apiIDologyResp == "FAIL")
+                if(iDology) 
                 {
-                    kplog.Error("apiIDOLOGY FAIL: Name=" + Name);
-                    return new AddKYCResponse { respcode = 0, message = "Please check and make sure you provided a valid information, if persist please contact support!" };
-                }
-                else if (apiIDologyResp == "ERROR")
-                {
-                    kplog.Error("apiIDOLOGY ERROR: Name=" + Name);
-                    return new AddKYCResponse { respcode = 0, message = "Something went wrong, Please try Again!" };
-                }
+                    var apiIDologyResp = ExpectID_IQ_Check(req).Result;
 
 
-                if (OfacMatch(Name))
-                {
-                    kplog.Error("OFAC FAIL: Name= " + Name);
-                    return new AddKYCResponse { respcode = 0, message = "Unable to register. Please contact Support!" };
+                    if (apiIDologyResp == "FAIL")
+                    {
+                        kplog.Error("apiIDOLOGY FAIL: Name=" + Name);
+                        return new AddKYCResponse { respcode = 0, message = "Please check and make sure you provided a valid information, if persist please contact support!" };
+                    }
+                    else if (apiIDologyResp == "ERROR")
+                    {
+                        kplog.Error("apiIDOLOGY ERROR: Name=" + Name);
+                        return new AddKYCResponse { respcode = 0, message = "Something went wrong, Please try Again!" };
+                    }
+
 
                 }
-
 
                 dt = getServerDateGlobal();
             }
