@@ -14,12 +14,6 @@ namespace MLRemitWebAPI
             routes.IgnoreRoute("{resource}.axd/{*pathInfo}");
 
             routes.MapRoute(
-                name: "forgotpassword",
-                url: "fp",
-                defaults: new { controller = "ForgotPassword", action = "fprstpswrd", id = UrlParameter.Optional }
-            );
-
-            routes.MapRoute(
                 name: "Default",
                 url: "{controller}/{action}/{id}",
                 defaults: new { controller = "Home", action = "Index", id = UrlParameter.Optional }
