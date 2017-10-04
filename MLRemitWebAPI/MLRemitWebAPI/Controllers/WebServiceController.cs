@@ -60,7 +60,6 @@ namespace PayNearMe.Controllers.api
         private MySqlTransaction custtrans = null;
         private String siteIdentifier = string.Empty;
         private String secretKey = string.Empty;
-        private static double pnmCharge = 3.99;
         private String ftp = string.Empty;
         private String http = string.Empty;
         private ILog kplog;
@@ -77,6 +76,8 @@ namespace PayNearMe.Controllers.api
         private String iDologyPass = String.Empty;
         private Boolean iDology = false;
         private AESEncryption encdata = new AESEncryption();
+        private double pnmCharge = 3.99;
+        private double pnmCharge501 = 3.99;
 
         public WebServiceController()
         {
@@ -102,6 +103,8 @@ namespace PayNearMe.Controllers.api
             iDologyServer = config["iDologyServer"].ToString();
             iDologyUser = config["iDologyUser"].ToString();
             iDologyPass = config["iDologyPass"].ToString();
+            pnmCharge = Convert.ToDouble(config["pnm500Charge"]);
+            pnmCharge501 = Convert.ToDouble(config["pnmAbove500Charge"]);
 
         }
 
@@ -3061,11 +3064,14 @@ namespace PayNearMe.Controllers.api
         [HttpGet]
         public ChargeResponse getChargeTable(String bcode, String zcode, String securityToken)
         {
+
+
             if (securityToken != secureToken)
             {
                 kplog.Error(getRespMessage(7));
                 return new ChargeResponse { respcode = 0, message = getRespMessage(7) };
             }
+
 
             var resp = calculateChargePerBranchGlobalMobile(bcode, zcode);
 
